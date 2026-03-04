@@ -21,3 +21,7 @@
 [REGISTER] Agent TestAgent (7fff9e92-1d0b-42a4-8439-1022b8fb35f3) registered as Test
 [WS] Connection closed: socket_1_1772603991948 (code: 1005, reason: )
 [DISCONNECT] Agent TestAgent (7fff9e92-1d0b-42a4-8439-1022b8fb35f3) disconnected
+[2026-03-04T14:50:59.462Z] GET /
+[2026-03-04T14:51:34.697Z] GET /health
+[WS] New connection: socket_2_1772635922858 from 127.0.0.1
+[WS] Connection closed: socket_2_1772635922858 (code: 1006, reason: )
