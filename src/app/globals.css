@@ -1,0 +1,217 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bridge-bg: #0a0a0f;
+  --bridge-surface: #12121a;
+  --bridge-accent: #00d4ff;
+  --bridge-accent2: #7c3aed;
+  --bridge-text: #e2e8f0;
+  --bridge-border: #1e293b;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  background-color: var(--bridge-bg);
+  color: var(--bridge-text);
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bridge-surface);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bridge-border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--bridge-accent);
+}
+
+/* Futuristic grid background */
+.bridge-grid-bg {
+  background-image: 
+    linear-gradient(rgba(0, 212, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 212, 255, 0.03) 1px, transparent 1px);
+  background-size: 50px 50px;
+}
+
+/* Glowing borders */
+.glow-border {
+  border: 1px solid rgba(0, 212, 255, 0.2);
+  box-shadow: 
+    0 0 0 1px rgba(0, 212, 255, 0.1),
+    inset 0 0 20px rgba(0, 212, 255, 0.05);
+}
+
+.glow-border-purple {
+  border: 1px solid rgba(124, 58, 237, 0.2);
+  box-shadow: 
+    0 0 0 1px rgba(124, 58, 237, 0.1),
+    inset 0 0 20px rgba(124, 58, 237, 0.05);
+}
+
+/* Agent status indicators */
+.status-online {
+  background: #10b981;
+  box-shadow: 0 0 10px #10b981, 0 0 20px #10b981;
+}
+
+.status-busy {
+  background: #f59e0b;
+  box-shadow: 0 0 10px #f59e0b, 0 0 20px #f59e0b;
+}
+
+.status-idle {
+  background: #64748b;
+}
+
+.status-offline {
+  background: #ef4444;
+}
+
+.status-error {
+  background: #ef4444;
+  animation: pulse-error 1s ease-in-out infinite;
+}
+
+@keyframes pulse-error {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Cyberpunk text effects */
+.text-glow {
+  text-shadow: 0 0 10px rgba(0, 212, 255, 0.5), 0 0 20px rgba(0, 212, 255, 0.3);
+}
+
+.text-glow-purple {
+  text-shadow: 0 0 10px rgba(124, 58, 237, 0.5), 0 0 20px rgba(124, 58, 237, 0.3);
+}
+
+/* Scanline overlay */
+.scanlines::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.1),
+    rgba(0, 0, 0, 0.1) 1px,
+    transparent 1px,
+    transparent 2px
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Window controls */
+.window-drag-handle {
+  cursor: move;
+  user-select: none;
+}
+
+/* Chat bubble effects */
+.chat-bubble-sent {
+  background: linear-gradient(135deg, rgba(0, 212, 255, 0.15), rgba(0, 212, 255, 0.05));
+  border: 1px solid rgba(0, 212, 255, 0.2);
+}
+
+.chat-bubble-received {
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.15), rgba(124, 58, 237, 0.05));
+  border: 1px solid rgba(124, 58, 237, 0.2);
+}
+
+/* Connection status animation */
+.connection-pulse {
+  animation: connectionPulse 2s ease-in-out infinite;
+}
+
+@keyframes connectionPulse {
+  0%, 100% { 
+    box-shadow: 0 0 5px currentColor;
+  }
+  50% { 
+    box-shadow: 0 0 15px currentColor, 0 0 30px currentColor;
+  }
+}
+
+/* Typewriter cursor */
+.typewriter::after {
+  content: '|';
+  animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
+}
+
+/* Neural network background effect */
+.neural-bg {
+  position: relative;
+}
+
+.neural-bg::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    radial-gradient(circle at 20% 80%, rgba(0, 212, 255, 0.05) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(124, 58, 237, 0.05) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+/* Button hover effects */
+.bridge-btn {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.bridge-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(0, 212, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s ease;
+}
+
+.bridge-btn:hover::before {
+  left: 100%;
+}
+
+.bridge-btn:hover {
+  box-shadow: 0 0 20px rgba(0, 212, 255, 0.4);
+  border-color: rgba(0, 212, 255, 0.5);
+}

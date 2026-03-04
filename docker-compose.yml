@@ -1,0 +1,46 @@
+version: "3.8"
+
+services:
+  mission-control:
+    container_name: mission-control-server
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+    ports:
+      - "${PORT:-3001}:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - HOST=0.0.0.0
+      - HEARTBEAT_INTERVAL=${HEARTBEAT_INTERVAL:-30000}
+      - CORS_ORIGINS=${CORS_ORIGINS:-*}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    volumes:
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - mission-control
+
+  # Optional: Redis for state persistence (future feature)
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: mission-control-redis
+  #   restart: unless-stopped
+  #   networks:
+  #     - mission-control
+
+networks:
+  mission-control:
+    driver: bridge
+
+# Optional: Named volumes for persistence
+# volumes:
+#   redis-data:
+#     driver: local

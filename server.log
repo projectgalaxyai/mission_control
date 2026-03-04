@@ -1,0 +1,18 @@
+[dotenv@17.3.1] injecting env (7) from .env -- tip: ⚙️  override existing env vars with { override: true }
+============================================================
+  Mission Control Server Started
+============================================================
+  HTTP Server: http://0.0.0.0:3001
+  WebSocket:   ws://0.0.0.0:3001/ws
+  REST API:    http://0.0.0.0:3001/api
+============================================================
+  Endpoints:
+    GET  /api/agents       - List all agents
+    GET  /api/agents/:id   - Get specific agent
+    GET  /api/channels     - List all channels
+    GET  /api/metrics      - Server metrics
+    GET  /api/health       - Health check
+============================================================
+[2026-03-04T05:53:14.607Z] GET /api/health
+[2026-03-04T05:54:05.352Z] GET /api/agents
+[2026-03-04T05:57:32.963Z] GET /health
