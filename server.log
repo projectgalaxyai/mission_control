@@ -25,3 +25,40 @@
 [2026-03-04T14:51:34.697Z] GET /health
 [WS] New connection: socket_2_1772635922858 from 127.0.0.1
 [WS] Connection closed: socket_2_1772635922858 (code: 1006, reason: )
+[2026-03-04T14:55:50.950Z] HEAD /health
+[2026-03-04T15:02:39.613Z] GET /api/health
+[2026-03-04T15:49:48.529Z] GET /api/health
+[WS] New connection: socket_3_1772639428455 from 127.0.0.1
+[WS] Connection closed: socket_3_1772639428455 (code: 1006, reason: )
+[WS] New connection: socket_4_1772643795300 from 127.0.0.1
+[REGISTER] Agent TestAgent (d485d6df-25ab-4f4d-8e7e-6006863584a6) registered as Test
+[WS] Connection closed: socket_4_1772643795300 (code: 1005, reason: )
+[DISCONNECT] Agent TestAgent (d485d6df-25ab-4f4d-8e7e-6006863584a6) disconnected
+[WS] New connection: socket_5_1772644272212 from 127.0.0.1
+[REGISTER] Agent Dev (9af89cc4-a7c9-4f18-9d2f-3473d798e85a) registered as Engineer
+[WS] Connection closed: socket_5_1772644272212 (code: 1005, reason: )
+[DISCONNECT] Agent Dev (9af89cc4-a7c9-4f18-9d2f-3473d798e85a) disconnected
+[WS] New connection: socket_6_1772644346916 from 127.0.0.1
+[REGISTER] Agent Dev (c41324e0-e6ae-4385-b971-183562fb6765) registered as Engineer
+[WS] Connection closed: socket_6_1772644346916 (code: 1005, reason: )
+[DISCONNECT] Agent Dev (c41324e0-e6ae-4385-b971-183562fb6765) disconnected
+[WS] New connection: socket_7_1772644489228 from 127.0.0.1
+[REGISTER] Agent Dev (63383989-8c5a-4967-855e-68b8e8e61f3b) registered as Engineer
+[WS] New connection: socket_8_1772645476513 from 127.0.0.1
+[REGISTER] Agent Orion (2ead6545-1421-4ed6-b20e-e54e13ca0f23) registered as Director
+[WS] New connection: socket_9_1772645877727 from 127.0.0.1
+[REGISTER] Agent Command (7ccf3cc0-c662-427e-b3af-b52d51b130f8) registered as User
+[WS] Connection closed: socket_9_1772645877727 (code: 1001, reason: )
+[DISCONNECT] Agent Command (7ccf3cc0-c662-427e-b3af-b52d51b130f8) disconnected
+[WS] New connection: socket_10_1772646255203 from 127.0.0.1
+[REGISTER] Agent Command (45b66e5b-fd6e-455f-9747-1d90e713b295) registered as User
+
+[SHUTDOWN] Received shutdown signal. Closing connections...
+[DISCONNECT] Agent Dev (63383989-8c5a-4967-855e-68b8e8e61f3b) disconnected
+[DISCONNECT] Agent Orion (2ead6545-1421-4ed6-b20e-e54e13ca0f23) disconnected
+[DISCONNECT] Agent Command (45b66e5b-fd6e-455f-9747-1d90e713b295) disconnected
+
+[SHUTDOWN] Received shutdown signal. Closing connections...
+[WS] Connection closed: socket_7_1772644489228 (code: 1000, reason: Server shutting down)
+[WS] Connection closed: socket_10_1772646255203 (code: 1000, reason: Server shutting down)
+[SHUTDOWN] Server closed

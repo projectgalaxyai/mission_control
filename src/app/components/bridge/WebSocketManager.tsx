@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useBridge } from '@/app/context/BridgeContext';
 
-const WS_SERVER_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3001';
+const WS_SERVER_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3001/ws';
 
 export default function WebSocketManager() {
   const {
@@ -17,19 +17,39 @@ export default function WebSocketManager() {
     setAgents,
   } = useBridge();
 
+  // Prevent StrictMode double-mount from creating duplicate connections
+  const isConnecting = useRef(false);
+  const hasConnected = useRef(false);
+  const reconnectAttempts = useRef(0);
+
   useEffect(() => {
+    // StrictMode guard - don't connect twice
+    if (isConnecting.current || hasConnected.current) {
+      console.log('[Bridge] Already connecting or connected, skipping...');
+      return;
+    }
+
     let ws: WebSocket | null = null;
     let reconnectTimer: NodeJS.Timeout | null = null;
     let heartbeatInterval: NodeJS.Timeout | null = null;
+    const MAX_RECONNECT_DELAY = 30000;
 
     const connect = () => {
+      if (isConnecting.current) return;
+      isConnecting.current = true;
+      
       setConnectionStatus('connecting');
+      console.log('[Bridge] Connecting to', WS_SERVER_URL);
 
       try {
         ws = new WebSocket(WS_SERVER_URL);
 
         ws.onopen = () => {
           console.log('[Bridge] WebSocket connected');
+          isConnecting.current = false;
+          hasConnected.current = true;
+          reconnectAttempts.current = 0;
+          
           setConnectionStatus('connected');
           addNotification({
             type: 'success',
@@ -53,6 +73,22 @@ export default function WebSocketManager() {
             })
           );
 
+          // Explicitly request agent list after registration
+          setTimeout(() => {
+            ws?.send(
+              JSON.stringify({
+                type: 'command',
+                command: 'getAgents',
+                from: 'user',
+                requestId: `req-${Date.now()}`,
+                args: {},
+                timestamp: new Date().toISOString(),
+                id: `cmd-${Date.now()}`,
+              })
+            );
+            console.log('[Bridge] Requested agent list');
+          }, 500);
+
           // Start heartbeat
           heartbeatInterval = setInterval(() => {
             ws?.send(
@@ -70,7 +106,6 @@ export default function WebSocketManager() {
         ws.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
-
             switch (data.type) {
               case 'agent_joined':
                 agentJoined(data.agent);
@@ -81,7 +116,6 @@ export default function WebSocketManager() {
                   agentId: data.agent.id,
                 });
                 break;
-
               case 'agent_left':
                 agentLeft(data.agentId, data.reason);
                 addNotification({
@@ -91,24 +125,19 @@ export default function WebSocketManager() {
                   agentId: data.agentId,
                 });
                 break;
-
               case 'agent_update':
                 agentUpdated(data.agentId, data.agent);
                 break;
-
               case 'message':
               case 'broadcast':
                 addMessage(data);
                 break;
-
               case 'typing':
                 setTyping(data.agentId, data.isTyping);
                 break;
-
               case 'system':
                 addMessage(data);
                 break;
-
               case 'error':
                 console.error('[Bridge] Server error:', data);
                 addNotification({
@@ -117,11 +146,16 @@ export default function WebSocketManager() {
                   message: data.message || 'Unknown error',
                 });
                 break;
-
               case 'agent_list':
-                setAgents(data.agents);
+                setAgents(data.agents || []);
                 break;
-
+              case 'command_response':
+                if (data.result && Array.isArray(data.result)) {
+                  // getAgents response
+                  setAgents(data.result);
+                  console.log('[Bridge] Loaded', data.result.length, 'agents');
+                }
+                break;
               default:
                 console.log('[Bridge] Unknown message type:', data.type);
             }
@@ -132,30 +166,43 @@ export default function WebSocketManager() {
 
         ws.onerror = (err) => {
           console.error('[Bridge] WebSocket error:', err);
-          setConnectionStatus('error', 'Connection error');
+          setConnectionStatus('error');
         };
 
         ws.onclose = () => {
           console.log('[Bridge] WebSocket disconnected');
           setConnectionStatus('disconnected');
-
+          isConnecting.current = false;
+          
           if (heartbeatInterval) {
             clearInterval(heartbeatInterval);
             heartbeatInterval = null;
           }
 
-          // Auto-reconnect after 3 seconds
+          // Exponential backoff for reconnect
+          reconnectAttempts.current++;
+          const delay = Math.min(
+            3000 * Math.pow(2, reconnectAttempts.current - 1),
+            MAX_RECONNECT_DELAY
+          );
+          console.log(`[Bridge] Reconnecting in ${delay}ms (attempt ${reconnectAttempts.current})...`);
+          
           reconnectTimer = setTimeout(() => {
-            console.log('[Bridge] Attempting reconnect...');
             connect();
-          }, 3000);
+          }, delay);
         };
       } catch (err) {
         console.error('[Bridge] Connection failed:', err);
-        setConnectionStatus('error', 'Failed to connect');
-
-        // Retry after 3 seconds
-        reconnectTimer = setTimeout(connect, 3000);
+        isConnecting.current = false;
+        setConnectionStatus('error');
+        
+        // Retry with backoff
+        reconnectAttempts.current++;
+        const delay = Math.min(
+          3000 * Math.pow(2, reconnectAttempts.current - 1),
+          MAX_RECONNECT_DELAY
+        );
+        reconnectTimer = setTimeout(connect, delay);
       }
     };
 
@@ -166,16 +213,7 @@ export default function WebSocketManager() {
       if (heartbeatInterval) clearInterval(heartbeatInterval);
       ws?.close();
     };
-  }, [
-    setConnectionStatus,
-    agentJoined,
-    agentLeft,
-    agentUpdated,
-    addMessage,
-    setTyping,
-    addNotification,
-    setAgents,
-  ]);
+  }, []); // Empty deps - only run once on mount
 
-  return null; // Invisible component
+  return null;
 }

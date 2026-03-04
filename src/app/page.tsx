@@ -102,20 +102,9 @@ export default function BridgePage() {
 
   // Initialize mock data on mount
   useEffect(() => {
-    setAgents(MOCK_AGENTS);
+    // setAgents(MOCK_AGENTS); // Real agents via WebSocket
     MOCK_MESSAGES.forEach((msg) => addMessage(msg));
 
-    // Simulate connection
-    setConnectionStatus('connecting');
-    const timer = setTimeout(() => {
-      setConnectionStatus('connected');
-      addNotification({
-        type: 'success',
-        title: 'Connected',
-        message: 'Successfully connected to Mission Control server',
-      });
-    }, 1500);
-    return () => clearTimeout(timer);
   }, []);
 
   const handleSendMessage = useCallback(

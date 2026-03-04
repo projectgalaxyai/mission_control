@@ -143,6 +143,14 @@ async function handleRegister(
   };
   agentRegistry.broadcast(JSON.stringify(joinedMessage), agent.id);
 
+  // Send current agent list to newly registered agent
+  const agentListMessage = {
+    ...createBaseMessage('agent_list'),
+    type: 'agent_list' as const,
+    agents: agentRegistry.getAllAgentsForClient().filter(a => a.id !== agent.id),
+  };
+  socket.send(JSON.stringify(agentListMessage));
+
   console.log(`[REGISTER] Agent ${agent.name} (${agent.id}) registered as ${agent.type}`);
 }
 
