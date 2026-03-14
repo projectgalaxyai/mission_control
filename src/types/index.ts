@@ -131,6 +131,21 @@ export interface RegisterMessage extends BaseMessage {
   agent: Omit<Agent, 'id' | 'connectedAt' | 'lastHeartbeat' | 'socketId'>;
 }
 
+// Task types (Place of Business)
+export type TaskStatus = 'pending' | 'in-progress' | 'completed' | 'blocked';
+export type TaskProject = 'Constellation' | 'Cognito' | 'TenWorks' | 'General';
+
+export interface Task {
+  id: string;
+  title: string;
+  description: string;
+  assignedTo: string; // agent ID
+  status: TaskStatus;
+  project: TaskProject;
+  createdAt: string; // ISO timestamp
+  updatedAt: string; // ISO timestamp
+}
+
 export type Message =
   | HeartbeatMessage
   | HeartbeatAckMessage

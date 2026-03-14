@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useReducer, useCallback, useRef, ReactNode } from 'react';
-import type { Agent, ChatMessage, SystemMessage } from '@/types';
+import type { Agent, ChatMessage, SystemMessage, Task } from '@/types';
 
 export interface WindowPosition {
   x: number; y: number; width: number; height: number; zIndex: number;
@@ -32,6 +32,7 @@ export interface BridgeState {
   registeredAgentId: string | null;
   agents: Agent[]; openAgentSessions: Record<string, AgentSession>;
   selectedAgentId: string | null; messages: (ChatMessage | SystemMessage)[];
+  tasks: Task[];
   typingAgents: Record<string, boolean>; sidebarOpen: boolean;
   notifications: Notification[]; groupChatOpen: boolean; preferences: UserPreferences;
 }
@@ -57,11 +58,14 @@ type BridgeAction =
   | { type: 'CLEAR_NOTIFICATIONS' }
   | { type: 'TOGGLE_GROUP_CHAT' }
   | { type: 'MARK_SESSION_READ'; payload: string }
-  | { type: 'REORDER_WINDOWS'; payload: { agentId: string; zIndex: number } };
+  | { type: 'REORDER_WINDOWS'; payload: { agentId: string; zIndex: number } }
+  | { type: 'ADD_TASK'; payload: Task }
+  | { type: 'UPDATE_TASK_STATUS'; payload: { taskId: string; status: Task['status'] } }
+  | { type: 'SET_TASKS'; payload: Task[] };
 
 const initialState: BridgeState = {
   connectionStatus: 'disconnected', serverUrl: '', registeredAgentId: null, agents: [],
-  openAgentSessions: {}, selectedAgentId: null, messages: [], typingAgents: {},
+  openAgentSessions: {}, selectedAgentId: null, messages: [], tasks: [], typingAgents: {},
   sidebarOpen: true, notifications: [], groupChatOpen: true,
   preferences: { sidebarOpen: true, soundEnabled: true, notificationsEnabled: true, theme: 'dark', compactMode: false },
 };
@@ -94,6 +98,9 @@ function bridgeReducer(state: BridgeState, action: BridgeAction): BridgeState {
     case 'TOGGLE_GROUP_CHAT': return { ...state, groupChatOpen: !state.groupChatOpen };
     case 'MARK_SESSION_READ': return state.openAgentSessions[action.payload] ? { ...state, openAgentSessions: { ...state.openAgentSessions, [action.payload]: { ...state.openAgentSessions[action.payload], unreadCount: 0 } } } : state;
     case 'REORDER_WINDOWS': return { ...state, openAgentSessions: { ...state.openAgentSessions, [action.payload.agentId]: { ...state.openAgentSessions[action.payload.agentId], position: { ...state.openAgentSessions[action.payload.agentId].position, zIndex: action.payload.zIndex } } } };
+    case 'ADD_TASK': return { ...state, tasks: [...state.tasks.filter(t => t.id !== action.payload.id), action.payload] };
+    case 'UPDATE_TASK_STATUS': return { ...state, tasks: state.tasks.map(t => t.id === action.payload.taskId ? { ...t, status: action.payload.status, updatedAt: new Date().toISOString() } : t) };
+    case 'SET_TASKS': return { ...state, tasks: action.payload };
     default: return state;
   }
 }
@@ -116,6 +123,9 @@ interface BridgeContextType extends BridgeState {
   setAgents: (agents: Agent[]) => void; agentJoined: (agent: Agent) => void;
   agentLeft: (agentId: string, reason?: string) => void; agentUpdated: (agentId: string, updates: Partial<Agent>) => void;
   bringToFront: (agentId: string) => void;
+  addTask: (task: Task) => void;
+  updateTaskStatus: (taskId: string, status: Task['status']) => void;
+  setTasks: (tasks: Task[]) => void;
   registerSendMessage: (fn: SendMessageFn | null) => void;
   sendMessage: (content: string, to: string) => void;
 }
@@ -145,6 +155,9 @@ export function BridgeProvider({ children }: { children: ReactNode }) {
   const agentJoined = useCallback((agent: Agent) => dispatch({ type: 'AGENT_JOINED', payload: agent }), []);
   const agentLeft = useCallback((agentId: string, reason?: string) => dispatch({ type: 'AGENT_LEFT', payload: { agentId, reason } }), []);
   const agentUpdated = useCallback((agentId: string, agent: Partial<Agent>) => dispatch({ type: 'AGENT_UPDATED', payload: { id: agentId, ...agent } }), []);
+  const addTask = useCallback((task: Task) => dispatch({ type: 'ADD_TASK', payload: task }), []);
+  const updateTaskStatus = useCallback((taskId: string, status: Task['status']) => dispatch({ type: 'UPDATE_TASK_STATUS', payload: { taskId, status } }), []);
+  const setTasks = useCallback((tasks: Task[]) => dispatch({ type: 'SET_TASKS', payload: tasks }), []);
   const bringToFront = useCallback((agentId: string) => {
     const maxZ = Math.max(10, ...Object.values(state.openAgentSessions).map(s => s.position.zIndex));
     dispatch({ type: 'REORDER_WINDOWS', payload: { agentId, zIndex: maxZ + 1 } });
@@ -189,6 +202,7 @@ export function BridgeProvider({ children }: { children: ReactNode }) {
     restoreAgentSession, updateWindowPosition, selectAgent, addMessage, setTyping,
     toggleSidebar, toggleGroupChat, addNotification, markNotificationRead, clearNotifications,
     markSessionRead, setConnectionStatus, setRegisteredAgentId, setAgents, agentJoined, agentLeft, agentUpdated, bringToFront,
+    addTask, updateTaskStatus, setTasks,
     registerSendMessage, sendMessage,
   };
 
