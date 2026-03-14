@@ -1,4 +1,5 @@
 import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 import { auth0 } from '@/lib/auth0';
 
 /**
@@ -6,7 +7,16 @@ import { auth0 } from '@/lib/auth0';
  * Unauthenticated users visiting / are redirected to /auth/login.
  */
 export async function middleware(request: NextRequest) {
-  return await auth0.middleware(request);
+  const response = await auth0.middleware(request);
+
+  if (request.nextUrl.pathname === '/') {
+    const session = await auth0.getSession(request);
+    if (!session) {
+      return NextResponse.redirect(new URL('/auth/login', request.url));
+    }
+  }
+
+  return response;
 }
 
 export const config = {
