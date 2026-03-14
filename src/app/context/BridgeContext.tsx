@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useReducer, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useReducer, useCallback, useRef, ReactNode } from 'react';
 import type { Agent, ChatMessage, SystemMessage } from '@/types';
 
 export interface WindowPosition {
@@ -29,6 +29,7 @@ export interface Notification {
 
 export interface BridgeState {
   connectionStatus: ConnectionStatus; connectionError?: string; serverUrl: string;
+  registeredAgentId: string | null;
   agents: Agent[]; openAgentSessions: Record<string, AgentSession>;
   selectedAgentId: string | null; messages: (ChatMessage | SystemMessage)[];
   typingAgents: Record<string, boolean>; sidebarOpen: boolean;
@@ -37,6 +38,7 @@ export interface BridgeState {
 
 type BridgeAction =
   | { type: 'SET_CONNECTION_STATUS'; payload: { status: ConnectionStatus; error?: string } }
+  | { type: 'SET_REGISTERED_AGENT_ID'; payload: string | null }
   | { type: 'SET_AGENTS'; payload: Agent[] }
   | { type: 'AGENT_JOINED'; payload: Agent }
   | { type: 'AGENT_LEFT'; payload: { agentId: string; reason?: string } }
@@ -58,7 +60,7 @@ type BridgeAction =
   | { type: 'REORDER_WINDOWS'; payload: { agentId: string; zIndex: number } };
 
 const initialState: BridgeState = {
-  connectionStatus: 'disconnected', serverUrl: '', agents: [],
+  connectionStatus: 'disconnected', serverUrl: '', registeredAgentId: null, agents: [],
   openAgentSessions: {}, selectedAgentId: null, messages: [], typingAgents: {},
   sidebarOpen: true, notifications: [], groupChatOpen: true,
   preferences: { sidebarOpen: true, soundEnabled: true, notificationsEnabled: true, theme: 'dark', compactMode: false },
@@ -67,6 +69,7 @@ const initialState: BridgeState = {
 function bridgeReducer(state: BridgeState, action: BridgeAction): BridgeState {
   switch (action.type) {
     case 'SET_CONNECTION_STATUS': return { ...state, connectionStatus: action.payload.status, connectionError: action.payload.error };
+    case 'SET_REGISTERED_AGENT_ID': return { ...state, registeredAgentId: action.payload };
     case 'SET_AGENTS': return { ...state, agents: action.payload };
     case 'AGENT_JOINED': return { ...state, agents: [...state.agents.filter(a => a.id !== action.payload.id), action.payload] };
     case 'AGENT_LEFT': { const { [action.payload.agentId]: _, ...s } = state.openAgentSessions; return { ...state, agents: state.agents.filter(a => a.id !== action.payload.agentId), openAgentSessions: s }; }
@@ -95,6 +98,8 @@ function bridgeReducer(state: BridgeState, action: BridgeAction): BridgeState {
   }
 }
 
+export type SendMessageFn = (content: string, to: string) => void;
+
 interface BridgeContextType extends BridgeState {
   dispatch: React.Dispatch<BridgeAction>;
   openAgentSession: (agent: Agent) => void; closeAgentSession: (agentId: string) => void;
@@ -107,9 +112,12 @@ interface BridgeContextType extends BridgeState {
   addNotification: (notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => void;
   markNotificationRead: (id: string) => void; clearNotifications: () => void;
   markSessionRead: (agentId: string) => void; setConnectionStatus: (status: ConnectionStatus, error?: string) => void;
+  setRegisteredAgentId: (id: string | null) => void;
   setAgents: (agents: Agent[]) => void; agentJoined: (agent: Agent) => void;
   agentLeft: (agentId: string, reason?: string) => void; agentUpdated: (agentId: string, updates: Partial<Agent>) => void;
   bringToFront: (agentId: string) => void;
+  registerSendMessage: (fn: SendMessageFn | null) => void;
+  sendMessage: (content: string, to: string) => void;
 }
 
 const BridgeContext = createContext<BridgeContextType | null>(null);
@@ -132,6 +140,7 @@ export function BridgeProvider({ children }: { children: ReactNode }) {
   const clearNotifications = useCallback(() => dispatch({ type: 'CLEAR_NOTIFICATIONS' }), []);
   const markSessionRead = useCallback((agentId: string) => dispatch({ type: 'MARK_SESSION_READ', payload: agentId }), []);
   const setConnectionStatus = useCallback((status: ConnectionStatus, error?: string) => dispatch({ type: 'SET_CONNECTION_STATUS', payload: { status, error } }), []);
+  const setRegisteredAgentId = useCallback((id: string | null) => dispatch({ type: 'SET_REGISTERED_AGENT_ID', payload: id }), []);
   const setAgents = useCallback((agents: Agent[]) => dispatch({ type: 'SET_AGENTS', payload: agents }), []);
   const agentJoined = useCallback((agent: Agent) => dispatch({ type: 'AGENT_JOINED', payload: agent }), []);
   const agentLeft = useCallback((agentId: string, reason?: string) => dispatch({ type: 'AGENT_LEFT', payload: { agentId, reason } }), []);
@@ -141,11 +150,46 @@ export function BridgeProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'REORDER_WINDOWS', payload: { agentId, zIndex: maxZ + 1 } });
   }, [state.openAgentSessions]);
 
+  const sendMessageRef = useRef<SendMessageFn | null>(null);
+  const registerSendMessage = useCallback((fn: SendMessageFn | null) => {
+    sendMessageRef.current = fn;
+  }, []);
+  const sendMessage = useCallback((content: string, to: string) => {
+    if (!state.registeredAgentId) {
+      addNotification({
+        type: 'warning',
+        title: 'Not ready',
+        message: 'Still connecting to Mission Control. Please wait a moment.',
+      });
+      return;
+    }
+    const localMessage: ChatMessage = {
+      type: 'message',
+      id: `msg-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      from: state.registeredAgentId,
+      to: to as ChatMessage['to'],
+      content,
+      channel: to === 'broadcast' ? 'main' : 'private',
+    };
+    addMessage(localMessage);
+    if (sendMessageRef.current) {
+      sendMessageRef.current(content, to);
+    } else {
+      addNotification({
+        type: 'error',
+        title: 'Connection error',
+        message: 'WebSocket send is not available.',
+      });
+    }
+  }, [state.registeredAgentId, addMessage, addNotification]);
+
   const value: BridgeContextType = {
     ...state, dispatch, openAgentSession, closeAgentSession, minimizeAgentSession,
     restoreAgentSession, updateWindowPosition, selectAgent, addMessage, setTyping,
     toggleSidebar, toggleGroupChat, addNotification, markNotificationRead, clearNotifications,
-    markSessionRead, setConnectionStatus, setAgents, agentJoined, agentLeft, agentUpdated, bringToFront
+    markSessionRead, setConnectionStatus, setRegisteredAgentId, setAgents, agentJoined, agentLeft, agentUpdated, bringToFront,
+    registerSendMessage, sendMessage,
   };
 
   return <BridgeContext.Provider value={value}>{children}</BridgeContext.Provider>;

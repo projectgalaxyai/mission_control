@@ -113,9 +113,30 @@ class AgentConnector {
       case 'agent_left':
         console.log(`[${this.config.name}] 👋 Agent left:`, msg.agentId);
         break;
-      case 'message':
+      case 'message': {
         console.log(`[${this.config.name}] 💬 Message from ${msg.from}:`, msg.content);
+        
+        // Auto-respond to broadcast or direct messages
+        if (msg.to === 'broadcast' || msg.to === this.agentId) {
+          // Don't reply to my own messages
+          if (msg.from === this.agentId) break;
+          
+          setTimeout(() => {
+            const response = {
+              type: 'message',
+              id: `msg-${Date.now()}`,
+              timestamp: new Date().toISOString(),
+              from: this.agentId,
+              to: msg.from,
+              content: `Orion copied: "${msg.content}"`,
+              channel: 'main',
+            };
+            this.ws?.send(JSON.stringify(response));
+            console.log(`[${this.config.name}] 📤 Replied to ${msg.from}`);
+          }, 500);
+        }
         break;
+      }
       default:
         console.log(`[${this.config.name}] 📨 ${msg.type}:`, msg);
     }

@@ -22,26 +22,43 @@ A WebSocket server for real-time agent communication and management. Built with 
 npm install
 ```
 
-### Development Mode
+### Run the app (two processes)
+
+The **Mission Control server** (WebSocket + API) and the **Next.js UI** are separate. Run both:
+
+**Terminal 1 – start the server** (port 3001):
+
+```bash
+npm run server
+```
+
+- HTTP: `http://localhost:3001`
+- WebSocket: `ws://localhost:3001/ws`
+- REST API: `http://localhost:3001/api`
+
+**Terminal 2 – start the dashboard** (port 3000):
 
 ```bash
 npm run dev
 ```
 
-The server will start on:
-- HTTP: `http://localhost:3001`
-- WebSocket: `ws://localhost:3001/ws`
-- REST API: `http://localhost:3001/api`
+Open **http://localhost:3000** in your browser. The UI will connect to the server; if you see "Connection error", ensure Terminal 1 is running.
+
+**If you get 404 on http://localhost:3000:**
+
+- Run `npm run dev` from the **mission-control project root** (the folder that contains `package.json` and `src/app`).
+- Check the terminal: it should say `Local: http://localhost:3000`. If it says a different port (e.g. 3001), something else is using 3000—stop that process or open the URL Next.js prints.
+- Try clearing the cache and restarting: `rm -rf .next && npm run dev`, then open http://localhost:3000 again.
 
 ### Test with Mock Agents
 
-In a separate terminal:
+In a third terminal (optional):
 
 ```bash
-npm run mock:agent
+npx tsx src/mock-agent.ts
 ```
 
-This will spawn simulated agents that connect to the server and exchange messages.
+Or use `agent-connector.ts` to connect a real agent. Agents must connect to the same URL (`ws://localhost:3001/ws` by default).
 
 ## WebSocket Protocol
 

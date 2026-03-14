@@ -89,38 +89,27 @@ const MOCK_MESSAGES: (ChatMessage | SystemMessage)[] = [
 export default function BridgePage() {
   const {
     connectionStatus,
+    connectionError,
     agents,
+    registeredAgentId,
     openAgentSessions,
     groupChatOpen,
     messages,
-    setConnectionStatus,
-    setAgents,
     addMessage,
-    addNotification,
     openAgentSession,
+    sendMessage,
   } = useBridge();
 
-  // Initialize mock data on mount
+  // Initialize mock messages on mount
   useEffect(() => {
-    // setAgents(MOCK_AGENTS); // Real agents via WebSocket
     MOCK_MESSAGES.forEach((msg) => addMessage(msg));
-
-  }, []);
+  }, [addMessage]);
 
   const handleSendMessage = useCallback(
     (content: string, to: string | 'broadcast' = 'broadcast') => {
-      const message: ChatMessage = {
-        type: 'message',
-        id: `msg-${Date.now()}`,
-        timestamp: new Date().toISOString(),
-        from: 'user',
-        to,
-        content,
-        channel: to === 'broadcast' ? 'main' : 'private',
-      };
-      addMessage(message);
+      sendMessage(content, to);
     },
-    [addMessage]
+    [sendMessage]
   );
 
   return (
@@ -133,8 +122,12 @@ export default function BridgePage() {
 
       {/* Main content area */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar - Agent List */}
-        <Sidebar agents={agents} openAgentSession={openAgentSession} />
+        {/* Sidebar - Agent List (other agents only; never show "Command" / you) */}
+        <Sidebar
+          agents={agents}
+          myAgentId={registeredAgentId}
+          openAgentSession={openAgentSession}
+        />
 
         {/* Chat Canvas - Floating windows */}
         <ChatCanvas
@@ -157,11 +150,21 @@ export default function BridgePage() {
       {/* Connection status overlay */}
       {connectionStatus === 'connecting' && (
         <div className="fixed inset-0 bg-bridge-bg/90 flex items-center justify-center z-50">
-          <div className="text-center">
+          <div className="text-center max-w-sm px-4">
             <div className="w-16 h-16 border-4 border-bridge-accent/20 border-t-bridge-accent rounded-full animate-spin mb-4 mx-auto" />
             <h2 className="text-xl font-bold text-glow">ESTABLISHING UPLINK...</h2>
             <p className="text-bridge-textMuted mt-2">Connecting to Mission Control</p>
+            <p className="text-bridge-textMuted/80 text-xs mt-4">Open this app at <strong>http://localhost:3000</strong>. Server runs on port 3001.</p>
           </div>
+        </div>
+      )}
+      {connectionStatus === 'error' && (
+        <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:max-w-sm bg-bridge-surface border border-bridge-error/50 rounded-lg p-3 shadow-lg z-50">
+          <p className="text-sm font-medium text-bridge-error">Connection error</p>
+          {connectionError && <p className="text-xs text-bridge-textMuted mt-1">{connectionError}</p>}
+          <p className="text-xs text-bridge-textMuted mt-2">
+            Start the Mission Control server in another terminal: <code className="bg-bridge-surface2 px-1 rounded">npm run server</code>
+          </p>
         </div>
       )}
     </div>

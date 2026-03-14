@@ -41,6 +41,8 @@ The Bridge Mission Control is a real-time multi-agent chat interface that bridge
 - SSE as fallback for simple status streaming (agent heartbeats)
 - Native WebSocket reserved for binary data (file transfers, audio)
 
+**Current implementation (as of 2026-03)**: The Bridge uses **native WebSocket** (`ws` on Node, browser `WebSocket`) for real-time communication, not Socket.io. The Mission Control server is an Express + `ws` server (`src/server.ts`) with a custom JSON protocol (register, heartbeat, message, command, etc.). Agents and the dashboard connect to `ws://host:3001/ws`. The topology and message flows below are aspirational; refer to `src/server.ts` and `src/handlers/message-handler.ts` for the actual implementation.
+
 ### State Management Architecture
 
 | Library | Scope | Use Case |

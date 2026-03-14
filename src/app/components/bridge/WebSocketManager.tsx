@@ -2,12 +2,38 @@
 
 import React, { useEffect, useRef } from 'react';
 import { useBridge } from '@/app/context/BridgeContext';
+import type { Agent } from '@/types';
 
 const WS_SERVER_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3001/ws';
+
+// Global ref to WebSocket for sending messages from other components
+export const wsRef: { current: WebSocket | null } = { current: null };
+
+// Store the current user's agent ID
+export const userAgentId: { current: string | null } = { current: null };
+
+// Helper to check connection
+export const isWsConnected = (): boolean => {
+  return wsRef.current?.readyState === WebSocket.OPEN;
+};
+
+/** Normalize agent dates from server (ISO strings) to Date for frontend */
+function normalizeAgents(raw: unknown[]): Agent[] {
+  return (raw || []).map((a: any) => {
+    if (!a || typeof a !== 'object') return a;
+    return {
+      ...a,
+      connectedAt: a.connectedAt instanceof Date ? a.connectedAt : new Date(a.connectedAt || Date.now()),
+      lastHeartbeat: a.lastHeartbeat instanceof Date ? a.lastHeartbeat : new Date(a.lastHeartbeat || Date.now()),
+      socketId: a.socketId ?? '',
+    };
+  });
+}
 
 export default function WebSocketManager() {
   const {
     setConnectionStatus,
+    setRegisteredAgentId,
     agentJoined,
     agentLeft,
     agentUpdated,
@@ -15,12 +41,33 @@ export default function WebSocketManager() {
     setTyping,
     addNotification,
     setAgents,
+    registerSendMessage,
   } = useBridge();
 
   // Prevent StrictMode double-mount from creating duplicate connections
   const isConnecting = useRef(false);
   const hasConnected = useRef(false);
   const reconnectAttempts = useRef(0);
+
+  // Register send function so Bridge can send messages without require()
+  useEffect(() => {
+    const sendFn = (content: string, to: string) => {
+      if (wsRef.current?.readyState !== WebSocket.OPEN || !userAgentId.current) return;
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'message',
+          id: `msg-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+          from: userAgentId.current,
+          to,
+          content,
+          channel: to === 'broadcast' ? 'main' : 'private',
+        })
+      );
+    };
+    registerSendMessage(sendFn);
+    return () => registerSendMessage(null);
+  }, [registerSendMessage]);
 
   useEffect(() => {
     // StrictMode guard - don't connect twice
@@ -43,6 +90,12 @@ export default function WebSocketManager() {
 
       try {
         ws = new WebSocket(WS_SERVER_URL);
+        wsRef.current = ws;
+        // Also expose globally for debugging and cross-module access
+        if (typeof window !== 'undefined') {
+          (window as any).__missionControlWS = ws;
+          (window as any).__missionControlWSRef = wsRef;
+        } // Expose for sending messages
 
         ws.onopen = () => {
           console.log('[Bridge] WebSocket connected');
@@ -89,26 +142,37 @@ export default function WebSocketManager() {
             console.log('[Bridge] Requested agent list');
           }, 500);
 
-          // Start heartbeat
+          // Start heartbeat (use actual agentId once we have it from register response)
           heartbeatInterval = setInterval(() => {
-            ws?.send(
-              JSON.stringify({
-                type: 'heartbeat',
-                agentId: 'user',
-                status: 'online',
-                timestamp: new Date().toISOString(),
-                id: `hb-${Date.now()}`,
-              })
-            );
+            const aid = userAgentId.current;
+            if (aid && ws?.readyState === WebSocket.OPEN) {
+              ws.send(
+                JSON.stringify({
+                  type: 'heartbeat',
+                  agentId: aid,
+                  status: 'online',
+                  timestamp: new Date().toISOString(),
+                  id: `hb-${Date.now()}`,
+                })
+              );
+            }
           }, 30000);
         };
 
-        ws.onmessage = (event) => {
+        ws.onmessage = (event) => { console.log("[Bridge WS] Raw message received");
           try {
             const data = JSON.parse(event.data);
             switch (data.type) {
+              case 'register':
+                // Capture our agent ID from server response
+                if (data.success && data.agentId) {
+                  userAgentId.current = data.agentId;
+                  setRegisteredAgentId(data.agentId);
+                  console.log('[Bridge] Registered with agentId:', data.agentId);
+                }
+                break;
               case 'agent_joined':
-                agentJoined(data.agent);
+                agentJoined(normalizeAgents([data.agent])[0] ?? data.agent);
                 addNotification({
                   type: 'info',
                   title: 'Agent Online',
@@ -147,14 +211,16 @@ export default function WebSocketManager() {
                 });
                 break;
               case 'agent_list':
-                setAgents(data.agents || []);
+                setAgents(normalizeAgents(data.agents || []));
                 break;
               case 'command_response':
                 if (data.result && Array.isArray(data.result)) {
-                  // getAgents response
-                  setAgents(data.result);
+                  setAgents(normalizeAgents(data.result));
                   console.log('[Bridge] Loaded', data.result.length, 'agents');
                 }
+                break;
+              case 'heartbeat_ack':
+                // Server acknowledged our heartbeat; no UI update needed
                 break;
               default:
                 console.log('[Bridge] Unknown message type:', data.type);
@@ -166,12 +232,16 @@ export default function WebSocketManager() {
 
         ws.onerror = (err) => {
           console.error('[Bridge] WebSocket error:', err);
-          setConnectionStatus('error');
+          const msg = err instanceof Error ? err.message : 'WebSocket error';
+          setConnectionStatus('error', msg);
         };
 
-        ws.onclose = () => {
+        ws.onclose = (code: number, reason: Buffer | string) => {
           console.log('[Bridge] WebSocket disconnected');
-          setConnectionStatus('disconnected');
+          setRegisteredAgentId(null);
+          userAgentId.current = null;
+          const reasonStr = typeof reason === 'string' ? reason : reason?.toString?.() || '';
+          setConnectionStatus('disconnected', reasonStr || undefined);
           isConnecting.current = false;
           
           if (heartbeatInterval) {
@@ -194,8 +264,9 @@ export default function WebSocketManager() {
       } catch (err) {
         console.error('[Bridge] Connection failed:', err);
         isConnecting.current = false;
-        setConnectionStatus('error');
-        
+        const errMsg = err instanceof Error ? err.message : 'Connection failed';
+        setConnectionStatus('error', errMsg);
+
         // Retry with backoff
         reconnectAttempts.current++;
         const delay = Math.min(
@@ -211,9 +282,15 @@ export default function WebSocketManager() {
     return () => {
       if (reconnectTimer) clearTimeout(reconnectTimer);
       if (heartbeatInterval) clearInterval(heartbeatInterval);
+      setRegisteredAgentId(null);
+      userAgentId.current = null;
+      isConnecting.current = false;
+      hasConnected.current = false;
       ws?.close();
+      wsRef.current = null;
     };
-  }, []); // Empty deps - only run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- connect once on mount; cleanup clears state so StrictMode re-run can reconnect
+  }, []);
 
   return null;
 }

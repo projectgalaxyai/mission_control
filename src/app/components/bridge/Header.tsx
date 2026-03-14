@@ -2,10 +2,12 @@
 
 import React from 'react';
 import { useBridge } from '@/app/context/BridgeContext';
-import { Menu, Bell, Zap, Wifi, WifiOff, AlertCircle } from 'lucide-react';
+import { useUser } from '@auth0/nextjs-auth0/client';
+import { Menu, Bell, Zap, Wifi, WifiOff, AlertCircle, LogOut, User } from 'lucide-react';
 
 export default function Header() {
-  const { connectionStatus, connectionError, toggleSidebar, sidebarOpen, notifications, toggleGroupChat, groupChatOpen } = useBridge();
+  const { user, isLoading: authLoading } = useUser();
+  const { connectionStatus, toggleSidebar, sidebarOpen, notifications, toggleGroupChat, groupChatOpen } = useBridge();
 
   const unreadNotifications = notifications.filter(n => !n.read).length;
 
@@ -113,6 +115,23 @@ export default function Header() {
             {getConnectionText()}
           </span>
         </div>
+
+        {/* Auth: user + logout */}
+        {!authLoading && user && (
+          <div className="flex items-center gap-2 pl-2 border-l border-bridge-border">
+            <span className="flex items-center gap-1.5 text-xs text-bridge-textMuted max-w-[120px] truncate" title={user.email ?? user.name ?? 'User'}>
+              <User className="w-4 h-4 shrink-0" />
+              {user.name ?? user.email ?? 'You'}
+            </span>
+            <a
+              href="/auth/logout"
+              className="p-2 text-bridge-textMuted hover:text-bridge-text rounded-lg transition-colors"
+              title="Sign out"
+            >
+              <LogOut className="w-4 h-4" />
+            </a>
+          </div>
+        )}
       </div>
     </header>
   );

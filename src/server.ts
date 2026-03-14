@@ -158,7 +158,7 @@ setInterval(() => {
     if (!connection.isAlive) {
       inactiveAgents.push(connection.agent.id);
       try {
-        connection.socket.terminate();
+        (connection.socket as any).terminate();
       } catch {
         // Socket already closed
       }
@@ -166,7 +166,7 @@ setInterval(() => {
       // Mark for next check
       connection.isAlive = false;
       try {
-        connection.socket.ping();
+        (connection.socket as any).ping();
       } catch {
         // Socket error
       }

@@ -6,6 +6,8 @@ import { Search, Users, Activity, MoreHorizontal, Bot, Cpu, Sparkles, Shield } f
 
 interface SidebarProps {
   agents: Agent[];
+  /** Current user's agent id (Command) – excluded from list so you don't chat with yourself */
+  myAgentId?: string | null;
   openAgentSession: (agent: Agent) => void;
 }
 
@@ -33,26 +35,32 @@ const statusLabels: Record<string, string> = {
   error: 'ERROR',
 };
 
-export default function Sidebar({ agents, openAgentSession }: SidebarProps) {
+export default function Sidebar({ agents, myAgentId, openAgentSession }: SidebarProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
 
+  /** Only show other agents – never show "Command" (you) as a chat target */
+  const otherAgents = useMemo(
+    () => (myAgentId ? agents.filter((a) => a.id !== myAgentId) : agents),
+    [agents, myAgentId]
+  );
+
   const filteredAgents = useMemo(() => {
-    return agents.filter(agent => {
+    return otherAgents.filter(agent => {
       const matchesSearch = agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           agent.type.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesStatus = filterStatus ? agent.status === filterStatus : true;
       return matchesSearch && matchesStatus;
     });
-  }, [agents, searchQuery, filterStatus]);
+  }, [otherAgents, searchQuery, filterStatus]);
 
   const stats = useMemo(() => ({
-    total: agents.length,
-    online: agents.filter(a => a.status === 'online').length,
-    busy: agents.filter(a => a.status === 'busy').length,
-    idle: agents.filter(a => a.status === 'idle').length,
-    offline: agents.filter(a => a.status === 'offline').length,
-  }), [agents]);
+    total: otherAgents.length,
+    online: otherAgents.filter(a => a.status === 'online').length,
+    busy: otherAgents.filter(a => a.status === 'busy').length,
+    idle: otherAgents.filter(a => a.status === 'idle').length,
+    offline: otherAgents.filter(a => a.status === 'offline').length,
+  }), [otherAgents]);
 
   return (
     <aside className="w-72 bg-bridge-surface border-r border-bridge-border flex flex-col shrink-0">
@@ -139,17 +147,27 @@ export default function Sidebar({ agents, openAgentSession }: SidebarProps) {
               </div>
             </div>
 
-            {/* Context menu trigger */}
-            <button className="opacity-0 group-hover:opacity-100 p-1 text-bridge-textMuted hover:text-bridge-text transition-all">
+            {/* Context menu trigger - span to avoid nested buttons */}
+            <span
+              role="button"
+              tabIndex={0}
+              className="opacity-0 group-hover:opacity-100 p-1 text-bridge-textMuted hover:text-bridge-text transition-all cursor-pointer inline-flex"
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.stopPropagation(); }}
+              aria-label="Agent options"
+            >
               <MoreHorizontal className="w-4 h-4" />
-            </button>
+            </span>
           </button>
         ))}
 
         {filteredAgents.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-8 text-bridge-textMuted">
+          <div className="flex flex-col items-center justify-center py-8 px-3 text-center text-bridge-textMuted">
             <Bot className="w-8 h-8 mb-2 opacity-50" />
-            <p className="text-xs">No agents found</p>
+            <p className="text-xs font-medium">No other agents</p>
+            <p className="text-[10px] mt-2 leading-relaxed">
+              Other agents appear here when they connect to the same Mission Control server (<code className="bg-bridge-surface2 px-1 rounded">ws://localhost:3001/ws</code>). Start your OpenClaw agents (or run <code className="bg-bridge-surface2 px-1 rounded">npx tsx agent-connector.ts</code>) so they register on this server.
+            </p>
           </div>
         )}
       </div>
