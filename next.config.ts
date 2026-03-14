@@ -13,7 +13,8 @@ const nextConfig: NextConfig = {
       {
         source: '/api/bridge/:path*',
         destination: 'http://localhost:3001/:path*'
-      }
+      },
+      { source: '/favicon.ico', destination: '/vercel.svg' }
     ]
   }
 };

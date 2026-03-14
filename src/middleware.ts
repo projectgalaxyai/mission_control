@@ -11,6 +11,7 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)',
+    // Exclude static assets and /auth/profile (handled by app/auth/profile/route.ts in Node for reliable session)
+    '/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|auth/profile).*)',
   ],
 };
